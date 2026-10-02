@@ -1,0 +1,21 @@
+/* Styles for the demo page (planner/templates/planner/demo.html). */
+:root { --bg:#fff; --fg:#1b1f24; --mut:#667; --card:#f4f6f8; --acc:#0b6bcb; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14171a; --fg:#e8eaed; --mut:#9aa; --card:#1f2428; --acc:#5aa9ff; } }
+* { box-sizing:border-box; }
+body { margin:0; font:14px system-ui,sans-serif; background:var(--bg); color:var(--fg); display:grid; grid-template-columns:380px 1fr; height:100vh; }
+aside { padding:16px; overflow:auto; border-right:1px solid #8884; }
+h1 { font-size:18px; margin:0 0 12px; }
+label { display:block; margin:8px 0 3px; color:var(--mut); font-size:12px; }
+input { width:100%; padding:8px; border:1px solid #8886; border-radius:6px; background:var(--bg); color:var(--fg); }
+button { margin-top:12px; width:100%; padding:10px; border:0; border-radius:6px; background:var(--acc); color:#fff; font-weight:600; cursor:pointer; }
+button:disabled { opacity:.6; }
+#map { height:100%; }
+.card { background:var(--card); border-radius:8px; padding:10px 12px; margin-top:12px; }
+.big { font-size:24px; font-weight:700; }
+.row { display:flex; justify-content:space-between; gap:8px; padding:3px 0; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+td, th { padding:4px 2px; text-align:left; border-bottom:1px solid #8883; }
+.err { color:#d33; }
+.note { color:var(--mut); font-size:11px; margin-top:10px; line-height:1.4; }
+.pin { background:var(--acc); color:#fff; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-weight:700; border:2px solid #fff; }
+@media (max-width:760px) { body { grid-template-columns:1fr; grid-template-rows:auto 60vh; height:auto; } }

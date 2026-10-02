@@ -1,0 +1,12 @@
+# Local Redis for caching and rate limiting.
+#   docker compose up -d redis
+services:
+  redis:
+    image: redis:7-alpine
+    # Bound to localhost only: Redis has no password here, so it must not be reachable from the network.
+    # Host port comes from REDIS_PORT in .env (default 6379).
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    # Cap memory and evict least-recently-used keys when full (it's only a cache).
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped

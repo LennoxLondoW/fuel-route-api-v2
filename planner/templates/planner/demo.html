@@ -1,0 +1,27 @@
+{% load static %}<!DOCTYPE html>
+<!-- Demo client for the Fuel Route API: enter an API key and two places, the result is drawn on a map. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuel Route Planner</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="{% static 'planner/demo.css' %}">
+</head>
+<body>
+<aside>
+  <h1>⛽ Fuel Route Planner</h1>
+  <form id="form">
+    <label for="key">API key</label><input id="key" type="password" autocomplete="off" placeholder="fr_..." value="{{ demo_api_key }}" required>
+    <label for="from">Start (USA)</label><input id="from" value="New York, NY" maxlength="200" required>
+    <label for="to">Finish (USA)</label><input id="to" value="Los Angeles, CA" maxlength="200" required>
+    <button id="go" type="submit">Plan route</button>
+  </form>
+  <div id="out"></div>
+  <div class="note">Calls <code>GET /api/v1/route/</code>. Assumes a 500 mi range, 10 MPG and a full tank at departure.</div>
+</aside>
+<div id="map"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{% static 'planner/demo.js' %}"></script>
+</body>
+</html>

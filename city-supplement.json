@@ -1,0 +1,383 @@
+{
+  "_comment": [
+    "Coordinates for every city named in fuel-prices-for-be-assessment.csv that html/cities.js does",
+    "not cover. Without this, those truck stops could not be placed on a map and would be dropped",
+    "from the planner. Every priced truck stop in the file is loaded, including the 112 in Canadian",
+    "provinces, so most entries here are Canadian cities the US city table was never going to have.",
+    "",
+    "'aliases' map a price-file city onto a city already in the table that is the same place under",
+    "another spelling. 'coordinates' are places the table does not have at all. All of them came",
+    "from Nominatim (OpenStreetMap), and each was accepted only when the ISO 3166-2 subdivision it",
+    "returned matched the state or province the price file asked for, so a same-named place",
+    "elsewhere is never used.",
+    "",
+    "Keys are '<normalized city>|<lowercase state>', normalized by",
+    "planner.services.geocoding.normalize, which is why Fort Erie appears as 'ft erie' and",
+    "Saint-Liboire as 'st liboire'.",
+    "",
+    "Check coverage with : python manage.py check_prices",
+    "Regenerate with     : python manage.py check_prices --geocode-missing"
+  ],
+  "aliases": {
+    "brookpark|oh": "brook park",
+    "elizabethport|nj": "elizabeth"
+  },
+  "coordinates": {
+    "abbotsford|bc": [
+      49.0521,
+      -122.3295
+    ],
+    "airdrie|ab": [
+      51.286,
+      -114.0106
+    ],
+    "ayr|on": [
+      43.2855,
+      -80.4507
+    ],
+    "balgonie|sk": [
+      50.4893,
+      -104.2669
+    ],
+    "belleville|on": [
+      44.2436,
+      -77.3608
+    ],
+    "brampton|on": [
+      43.6858,
+      -79.7599
+    ],
+    "brandon|mb": [
+      49.8511,
+      -99.9609
+    ],
+    "brantford|on": [
+      43.1408,
+      -80.2632
+    ],
+    "brooks|ab": [
+      50.571,
+      -111.893
+    ],
+    "burlington|on": [
+      43.3249,
+      -79.7967
+    ],
+    "calgary|ab": [
+      51.0456,
+      -114.0575
+    ],
+    "chilliwack|bc": [
+      49.171,
+      -121.9526
+    ],
+    "cochrane|on": [
+      50.6309,
+      -82.1914
+    ],
+    "concord|on": [
+      43.8004,
+      -79.4994
+    ],
+    "cookstown|on": [
+      44.1898,
+      -79.7017
+    ],
+    "coquitlam|bc": [
+      49.2843,
+      -122.7933
+    ],
+    "cranbrook|bc": [
+      49.5107,
+      -115.7673
+    ],
+    "creston|bc": [
+      49.0974,
+      -116.5131
+    ],
+    "dartmouth|ns": [
+      44.68,
+      -63.572
+    ],
+    "davidson|sk": [
+      51.264,
+      -105.9875
+    ],
+    "dawson creek|bc": [
+      55.7605,
+      -120.2364
+    ],
+    "delta|bc": [
+      49.0846,
+      -123.0579
+    ],
+    "dryden|on": [
+      49.7857,
+      -92.8358
+    ],
+    "dugald|mb": [
+      49.8857,
+      -96.8428
+    ],
+    "edmonton|ab": [
+      53.5462,
+      -113.4912
+    ],
+    "edson|ab": [
+      53.5859,
+      -116.4428
+    ],
+    "etobicoke|on": [
+      43.6436,
+      -79.5656
+    ],
+    "evergreen|al": [
+      31.4335,
+      -86.9569
+    ],
+    "ft erie|on": [
+      42.9131,
+      -78.9186
+    ],
+    "ft mcmurray|ab": [
+      56.7292,
+      -111.3885
+    ],
+    "ft nelson|bc": [
+      58.8048,
+      -122.7015
+    ],
+    "ft saskatchewan|ab": [
+      53.7129,
+      -113.2149
+    ],
+    "ft st john|bc": [
+      56.2528,
+      -120.8472
+    ],
+    "gloucester|on": [
+      45.3584,
+      -75.5707
+    ],
+    "grande prairie|ab": [
+      55.1711,
+      -118.795
+    ],
+    "hamilton|on": [
+      43.2561,
+      -79.8729
+    ],
+    "hanna|ab": [
+      51.6446,
+      -111.9275
+    ],
+    "headingley|mb": [
+      49.8681,
+      -97.3911
+    ],
+    "henrico|va": [
+      37.5131,
+      -77.3465
+    ],
+    "hinton|ab": [
+      53.3991,
+      -117.5887
+    ],
+    "hope|bc": [
+      49.38,
+      -121.4416
+    ],
+    "hornby|on": [
+      43.5685,
+      -79.8414
+    ],
+    "inglewood|on": [
+      43.7964,
+      -79.9335
+    ],
+    "jaffray|bc": [
+      49.3711,
+      -115.301
+    ],
+    "kamloops|bc": [
+      50.6758,
+      -120.3394
+    ],
+    "kapuskasing|on": [
+      49.4167,
+      -82.4333
+    ],
+    "kingston|on": [
+      44.3054,
+      -76.4284
+    ],
+    "kitchener|on": [
+      43.4513,
+      -80.4928
+    ],
+    "kitwanga|bc": [
+      55.1004,
+      -128.0676
+    ],
+    "lancaster|on": [
+      45.1413,
+      -74.4999
+    ],
+    "lethbridge|ab": [
+      49.6946,
+      -112.8331
+    ],
+    "lloydminster|ab": [
+      53.28,
+      -110.0088
+    ],
+    "london|on": [
+      42.9837,
+      -81.2496
+    ],
+    "medicine hat|ab": [
+      50.043,
+      -110.679
+    ],
+    "milton|on": [
+      43.5137,
+      -79.8828
+    ],
+    "mississauga|on": [
+      43.5885,
+      -79.6437
+    ],
+    "moncton|nb": [
+      46.0986,
+      -64.8004
+    ],
+    "moose jaw|sk": [
+      50.3967,
+      -105.5357
+    ],
+    "nanton|ab": [
+      50.3482,
+      -113.7703
+    ],
+    "napanee|on": [
+      44.2474,
+      -76.9506
+    ],
+    "new westminster|bc": [
+      49.2068,
+      -122.9109
+    ],
+    "nisku|ab": [
+      53.3333,
+      -113.5333
+    ],
+    "oldcastle|on": [
+      42.2263,
+      -82.958
+    ],
+    "orono|on": [
+      43.975,
+      -78.6164
+    ],
+    "pass lake|on": [
+      48.5621,
+      -88.7363
+    ],
+    "pickering|on": [
+      43.8358,
+      -79.0906
+    ],
+    "port wentworth|ga": [
+      32.1491,
+      -81.1632
+    ],
+    "portage la prairie|mb": [
+      49.9724,
+      -98.2892
+    ],
+    "prince george|bc": [
+      53.9129,
+      -122.7454
+    ],
+    "quesnel|bc": [
+      52.9794,
+      -122.4936
+    ],
+    "red deer|ab": [
+      52.2691,
+      -113.8141
+    ],
+    "regina|sk": [
+      50.448,
+      -104.6159
+    ],
+    "sarnia|on": [
+      42.9744,
+      -82.4035
+    ],
+    "saskatoon|sk": [
+      52.1318,
+      -106.6608
+    ],
+    "sault ste marie|on": [
+      46.5127,
+      -84.333
+    ],
+    "sherwood park|ab": [
+      53.5257,
+      -113.2966
+    ],
+    "st liboire|qc": [
+      45.6525,
+      -72.7601
+    ],
+    "ste agathe|mb": [
+      49.5668,
+      -97.182
+    ],
+    "sudbury|on": [
+      46.4927,
+      -80.9912
+    ],
+    "tilbury|on": [
+      42.2593,
+      -82.4323
+    ],
+    "university park|il": [
+      41.44,
+      -87.6834
+    ],
+    "valleyview|ab": [
+      55.0667,
+      -117.2833
+    ],
+    "watson lake|yt": [
+      60.0624,
+      -128.7068
+    ],
+    "whitecourt|ab": [
+      54.1425,
+      -115.6847
+    ],
+    "whitehorse|yt": [
+      60.7216,
+      -135.0549
+    ],
+    "windsor|on": [
+      42.2859,
+      -82.9781
+    ],
+    "winnipeg|mb": [
+      49.8955,
+      -97.1385
+    ],
+    "wyoming|on": [
+      42.9481,
+      -82.1208
+    ],
+    "yorkton|sk": [
+      51.212,
+      -102.4612
+    ]
+  }
+}
