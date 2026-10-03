@@ -59,11 +59,8 @@ def plan_trip(origin, destination, geometry="polyline"):
         "to": end,
         "summary": {
             "distance_miles": round(miles, 1),
-            # What the truck actually covers: the route plus every detour to a pump.
-            "driven_miles": round(plan.driven_miles, 1),
-            "detour_miles": round(plan.detour_miles, 1),
             "duration_seconds": round(route["duration_seconds"]),
-            "fuel_used_gallons": round(plan.driven_miles / cfg["MPG"], 2),
+            "fuel_used_gallons": round(miles / cfg["MPG"], 2),
             "fuel_stops": len(stops),
             "total_cost_usd": plan.total_cost,
             "starting_tank": {
@@ -91,7 +88,7 @@ def plan_trip(origin, destination, geometry="polyline"):
             "station_corridor_miles": cfg["CORRIDOR_MILES"],
             "reserve_miles": cfg["RESERVE_MILES"],
             "starts_with_full_tank": True,
-            "detours_charged": True,
+            "stations_are_on_route": True,
             "station_positions": "city-level (the price list has no exact coordinates)",
         },
         "meta": {
@@ -120,9 +117,10 @@ def _stop_json(sequence, stop, mpg):
         "lat": st.lat,
         "lon": st.lon,
         "mile": round(st.mile, 1),
+        # How far the station's city centre is from the route line. Reported as information;
+        # the price file has no pump coordinates, and these are highway truck stops, so it is
+        # not treated as a detour to be driven.
         "distance_from_route_miles": round(st.offset, 1),
-        # Leaving the route for this pump and rejoining it costs this much extra driving.
-        "detour_miles": round(st.detour_miles, 1),
         "price_per_gallon": _price(st.price),
         "fuel_on_arrival_gallons": round(stop.arrive_miles / mpg, 2),
         "gallons": round(stop.gallons, 2),

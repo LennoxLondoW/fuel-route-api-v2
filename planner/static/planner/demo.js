@@ -75,7 +75,6 @@ function summarize(data) {
   return `
     <div class="card"><div class="big">${usd(s.total_cost_usd)}</div>total fuel cost
       <div class="row"><span>Distance</span><b>${Math.round(s.distance_miles)} mi</b></div>
-      ${s.detour_miles > 0 ? `<div class="row"><span>Detours to pumps</span><b>+${Math.round(s.detour_miles)} mi</b></div>` : ''}
       <div class="row"><span>Fuel used</span><b>${s.fuel_used_gallons.toFixed(1)} gal</b></div>
       <div class="row"><span>Fuel-ups</span><b>${s.fuel_stops}</b></div>
       <div class="row"><span>Starting tank (${s.starting_tank.gallons.toFixed(1)} gal)</span><b>${usd(s.starting_tank.cost_usd)}</b></div>

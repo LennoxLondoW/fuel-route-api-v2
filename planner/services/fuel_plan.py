@@ -13,10 +13,12 @@ stop list.
 
 Distances
 ---------
-Stations sit up to CORRIDOR_MILES off the route, so stopping at one is a detour: `offset`
-miles to leave the route and `offset` miles to rejoin it. Both are charged, to the leg that
-actually incurs them, and they count towards fuel used and towards whether the next station
-is reachable at all. A station we pass without buying costs no detour.
+Stations are treated as lying on the route, at the mile where the route passes closest to
+them. 97% of the rows in the price file give a highway address and 56% name an interstate
+exit, so these are highway truck stops: they really are along the way. The price file has no
+pump coordinates, only a city, so a station's distance from the route line is the distance to
+its city centre. Charging that as a detour would bill fuel for geocoding error rather than for
+driving. `distance_from_route_miles` still reports it, as information.
 
 Every planned leg ends with at least RESERVE_MILES of range still in the tank, so the plan
 does not depend on arriving at a pump with a dry tank.
@@ -62,13 +64,13 @@ class Stop:
 
     @property
     def is_purchase(self):
-        """True if fuel was actually bought here (and therefore a detour was driven)."""
+        """True if fuel was actually bought here, rather than the station being passed."""
         return self.buy_miles > PURCHASE_EPSILON
 
 
 @dataclass
 class FuelPlan:
-    """The finished plan: where to buy, what it costs, and how far the truck really drives."""
+    """The finished plan: where to buy and what it costs."""
 
     stops: list = field(default_factory=list)   # only stops where fuel is actually bought
     start_gallons: float = 0.0
@@ -78,8 +80,6 @@ class FuelPlan:
     leftover_gallons: float = 0.0
     leftover_credit: Decimal = ZERO
     total_cost: Decimal | None = None
-    detour_miles: float = 0.0      # extra miles driven to reach the stops and rejoin
-    driven_miles: float = 0.0      # route distance plus detour_miles
 
 
 class _Tank:
@@ -146,7 +146,7 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
                     reserve_miles=0.0, fallback_price=None):
     """
     candidates:     stations near the route, sorted by .mile
-    total_miles:    trip length along the route (detours are added on top)
+    total_miles:    trip length along the route
     reserve_miles:  range still in the tank when arriving anywhere
     fallback_price: price used for the starting tank if the route has no stations at all
     """
@@ -164,33 +164,13 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
     tank = _Tank(range_miles, mpg=mpg)
     leftover_miles = 0.0
 
-    def leg_to(frm_stop, to_station):
-        """
-        Miles driven from `frm_stop` (None = the start) to `to_station`.
-
-        Includes the detour out of the station we are leaving, if we bought there, and the
-        detour into the one we are heading for. Entering is charged optimistically: if it
-        turns out we buy nothing there, the caller drops it, which can only shorten the leg.
-        """
-        if frm_stop is None:
-            return to_station.mile + to_station.offset
-        exit_detour = frm_stop.station.offset if frm_stop.is_purchase else 0.0
-        return (to_station.mile - frm_stop.station.mile) + exit_detour + to_station.offset
-
-    def leg_to_finish(frm_stop):
-        """Miles from `frm_stop` (None = the start) to the destination."""
-        if frm_stop is None:
-            return total_miles
-        exit_detour = frm_stop.station.offset if frm_stop.is_purchase else 0.0
-        return (total_miles - frm_stop.station.mile) + exit_detour
-
     while True:
         # --- At the start: choose the first stop. ---
         if current is None:
             if total_miles + reserve <= fuel:
                 break  # the whole trip fits in one tank, reserve included
 
-            reachable = [s for s in candidates if s.mile + s.offset <= usable]
+            reachable = [s for s in candidates if s.mile <= usable]
             if not reachable:
                 raise NoStationInRange(
                     "No fuel station within "
@@ -198,30 +178,26 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
             not_too_close = [s for s in reachable if s.mile >= min_hop]
             first = _cheapest(not_too_close or reachable)
 
-            driven = first.mile + first.offset
-            fuel = range_miles - driven
+            fuel = range_miles - first.mile
             # The starting tank is billed at this stop's price (see the module docstring).
             tank.price_initial_fill(first.price)
-            tank.burn(driven)
+            tank.burn(first.mile)
             current = first
             stops.append(Stop(current, arrive_miles=fuel))
             continue
 
         stop = stops[-1]
-        remaining = leg_to_finish(stop)
+        remaining = total_miles - current.mile
 
         # Stations reachable from here on a full tank, keeping the reserve.
         window = [s for s in candidates
-                  if s.mile > current.mile and leg_to(stop, s) <= usable]
+                  if current.mile < s.mile <= current.mile + usable]
         # First one that is meaningfully cheaper than here.
         cheaper = next((s for s in window if s.price < current.price - min_saving), None)
 
         # --- Can we finish from here (and there is no cheaper station before the end)? ---
         if remaining <= usable and (cheaper is None or total_miles <= cheaper.mile):
             stop.buy_miles = max(0.0, remaining + reserve - fuel)
-            if not stop.is_purchase:
-                stop.buy_miles = 0.0
-                remaining = leg_to_finish(stop)   # no purchase here, so no detour either
             stop.cost = tank.buy(stop.buy_miles, current.price)
             fuel += stop.buy_miles
             tank.burn(remaining)
@@ -232,8 +208,7 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
         if cheaper is not None:
             # Buy only enough to reach the cheaper station, arriving with the reserve.
             nxt = cheaper
-            distance = leg_to(stop, nxt)
-            stop.buy_miles = max(0.0, distance + reserve - fuel)
+            stop.buy_miles = max(0.0, nxt.mile - current.mile + reserve - fuel)
         else:
             # This is the cheapest around: fill up and go to the best-priced station in range.
             if not window:
@@ -244,13 +219,8 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
             far_enough = [s for s in window if s.mile - current.mile >= min_hop]
             nxt = _cheapest(far_enough or window)
             stop.buy_miles = max(0.0, range_miles - fuel)
-            distance = leg_to(stop, nxt)
 
-        if not stop.is_purchase:
-            # Driving past, not stopping: drop both this station's detours from the leg.
-            stop.buy_miles = 0.0
-            distance = leg_to(stop, nxt)
-
+        distance = nxt.mile - current.mile
         stop.cost = tank.buy(stop.buy_miles, current.price)
         fuel += stop.buy_miles
         tank.burn(distance)
@@ -267,8 +237,6 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
 
     plan = FuelPlan()
     plan.stops = purchases
-    plan.detour_miles = sum(s.station.detour_miles for s in purchases)
-    plan.driven_miles = total_miles + plan.detour_miles
     plan.leftover_gallons = leftover_miles / mpg
     plan.leftover_credit = _money(tank.value)
 
@@ -278,7 +246,7 @@ def plan_fuel_stops(candidates, total_miles, *, range_miles, mpg, min_saving, mi
         plan.start_price_source = "first_stop"
     else:
         # No purchase anywhere: only the fuel actually burned is billed.
-        plan.start_gallons = plan.driven_miles / mpg
+        plan.start_gallons = total_miles / mpg
         plan.leftover_credit = ZERO
         if candidates:
             plan.start_price = min(s.price for s in candidates)

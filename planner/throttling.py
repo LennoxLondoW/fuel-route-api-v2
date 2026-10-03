@@ -11,6 +11,7 @@ enforced during an outage. That is deliberate: the alternative is refusing every
 from rest_framework.throttling import SimpleRateThrottle
 
 from .models import APIKey
+from .services import safe_cache
 
 
 class _APIKeyThrottle(SimpleRateThrottle):
@@ -23,6 +24,23 @@ class _APIKeyThrottle(SimpleRateThrottle):
         else:
             ident = f"ip:{self.get_ident(request)}"
         return f"throttle:{self.scope}:{ident}"
+
+    def allow_request(self, request, view):
+        """
+        Count this request, and let it through if the cache cannot be reached.
+
+        DRF's throttles read and write the cache directly rather than through
+        services.safe_cache, so without this a Redis outage would raise here and turn every
+        API request into a 500. Failing open is the deliberate choice: the alternative is
+        refusing all traffic because the rate limiter is unavailable. The outage is recorded,
+        so `meta.cache_degraded` and the health check both report that limits are not being
+        enforced.
+        """
+        try:
+            return super().allow_request(request, view)
+        except Exception as exc:
+            safe_cache.report_failure(f"throttle:{self.scope}", exc)
+            return True
 
 
 class APIKeyBurstThrottle(_APIKeyThrottle):

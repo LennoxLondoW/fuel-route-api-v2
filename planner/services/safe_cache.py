@@ -52,6 +52,16 @@ def cache_degraded():
     return _last_failure > 0.0 and (time.monotonic() - _last_failure) < 60.0
 
 
+def report_failure(operation, exc):
+    """
+    Record a cache failure that happened outside this module.
+
+    Used by the throttles, which talk to the cache through DRF rather than through here, so
+    that an outage still shows up in `cache_degraded()` and in the health check.
+    """
+    _note_failure(operation, exc)
+
+
 def get(key, default=None):
     """cache.get() that returns `default` when the backend is unreachable."""
     try:

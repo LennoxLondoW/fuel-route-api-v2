@@ -11,7 +11,8 @@ from pathlib import Path
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.core.cache.backends.base import BaseCache
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -68,12 +69,30 @@ def fake_osrm(lat, lon_start, lon_end, miles, annotate=True):
     return mock.patch("planner.services.routing.get_json", return_value=(200, body))
 
 
+class FailingCache(BaseCache):
+    """
+    A cache backend whose every operation raises, standing in for a Redis outage.
+
+    Swapped in through the settings rather than by patching one module's import, so that
+    every consumer sees the outage. That matters: DRF's throttles read and write the cache
+    directly, and patching only services.safe_cache left them untested.
+    """
+
+    def __init__(self, location, params):
+        """Accept the usual backend arguments and ignore them; nothing is ever stored."""
+        super().__init__(params)
+
+    def _fail(self, *args, **kwargs):
+        """Every operation fails the way an unreachable Redis does."""
+        raise ConnectionError("cache is down")
+
+    add = get = set = touch = delete = clear = incr = decr = get_many = set_many = _fail
+
+
 def broken_cache():
-    """Patch the cache backend so every operation raises, standing in for a Redis outage."""
-    backend = mock.MagicMock()
-    for operation in ("get", "set", "add", "incr", "delete"):
-        getattr(backend, operation).side_effect = ConnectionError("cache is down")
-    return mock.patch("planner.services.safe_cache.cache", backend)
+    """Replace the cache backend with one that fails, as a real outage would."""
+    return override_settings(
+        CACHES={"default": {"BACKEND": "planner.tests.FailingCache"}})
 
 
 def candidate(mile, price, offset=0.0):
@@ -180,38 +199,35 @@ class FuelPlanTests(TestCase):
             self.assertEqual(stop.cost.as_tuple().exponent, -2)
 
 
-class DetourTests(TestCase):
-    """Stations sit off the route, and leaving the route to reach one costs fuel."""
+class StationsAreOnRouteTests(TestCase):
+    """
+    A station's distance from the route line does not change the plan.
 
-    def test_detour_miles_are_charged(self):
-        """A stop 8 miles off the route adds 16 miles of driving, out and back."""
-        stations = [candidate(m, 3.0, offset=8.0) for m in range(100, 900, 100)]
-        plan = plan_fuel_stops(stations, 900, **PLAN_ARGS)
-        self.assertGreater(len(plan.stops), 0)
-        self.assertAlmostEqual(plan.detour_miles, 16.0 * len(plan.stops))
-        self.assertAlmostEqual(plan.driven_miles, 900 + plan.detour_miles)
+    The price file gives a city, not a pump, so that distance measures where the city centre
+    is, not a detour anyone drives. 97% of its rows carry a highway address and 56% name an
+    interstate exit, so these truck stops are on the road already.
+    """
 
-    def test_stations_on_the_route_add_no_detour(self):
-        """With offset 0 the driven distance is just the route."""
-        stations = [candidate(m, 3.0) for m in range(100, 900, 100)]
-        plan = plan_fuel_stops(stations, 900, **PLAN_ARGS)
-        self.assertEqual(plan.detour_miles, 0.0)
-        self.assertEqual(plan.driven_miles, 900)
-
-    def test_detour_eats_into_range(self):
-        """A station reachable on the route alone can be out of reach once its detour counts."""
-        on_route = plan_fuel_stops([candidate(495, 3.0)], 900, **PLAN_ARGS)
-        self.assertEqual(len(on_route.stops), 1)
-        # The same station 10 miles off the route needs 505 miles of range to get to.
-        with self.assertRaises(NoStationInRange):
-            plan_fuel_stops([candidate(495, 3.0, offset=10.0)], 900, **PLAN_ARGS)
-
-    def test_detour_raises_the_bill(self):
-        """Charging the detour costs more than ignoring it did."""
+    def test_offset_does_not_change_the_bill(self):
+        """Identical stations cost the same whether their city centre is near the route or far."""
         near = plan_fuel_stops([candidate(m, 3.0) for m in range(100, 900, 100)], 900, **PLAN_ARGS)
-        far = plan_fuel_stops([candidate(m, 3.0, offset=9.0) for m in range(100, 900, 100)],
+        far = plan_fuel_stops([candidate(m, 3.0, offset=18.0) for m in range(100, 900, 100)],
                               900, **PLAN_ARGS)
-        self.assertGreater(far.total_cost, near.total_cost)
+        self.assertEqual(far.total_cost, near.total_cost)
+        self.assertEqual(len(far.stops), len(near.stops))
+
+    def test_offset_does_not_change_reachability(self):
+        """A station within range on the route stays within range however far its city centre is."""
+        for offset in (0.0, 20.0):
+            plan = plan_fuel_stops([candidate(495, 3.0, offset=offset)], 900, **PLAN_ARGS)
+            self.assertEqual(len(plan.stops), 1, f"offset {offset}")
+
+    def test_fuel_used_is_the_route_distance(self):
+        """Gallons burned follow the route, not the route plus anything else."""
+        stations = [candidate(m, 3.0, offset=12.0) for m in range(100, 900, 100)]
+        plan = plan_fuel_stops(stations, 900, **PLAN_ARGS)
+        self.assertEqual(plan.start_gallons, 50.0)   # a full 500-mile tank at 10 MPG
+        self.assertGreater(len(plan.stops), 0)
 
 
 class ReserveTests(TestCase):
@@ -473,10 +489,9 @@ class RoutePlanTests(APITestBase):
         expected = s["starting_tank"]["cost_usd"] + s["fuel_bought_on_route_usd"] - s["leftover_fuel_credit_usd"]
         self.assertAlmostEqual(s["total_cost_usd"], expected, delta=0.005)
 
-        # Driving includes the detours to each pump.
-        self.assertGreaterEqual(s["driven_miles"], s["distance_miles"])
-        self.assertAlmostEqual(s["driven_miles"], s["distance_miles"] + s["detour_miles"], delta=0.05)
-        self.assertAlmostEqual(s["fuel_used_gallons"], s["driven_miles"] / 10, delta=0.05)
+        # Fuel burned follows the route distance at 10 MPG, nothing else.
+        self.assertAlmostEqual(s["fuel_used_gallons"], s["distance_miles"] / 10, delta=0.01)
+        self.assertTrue(data["assumptions"]["stations_are_on_route"])
 
         # Response headers.
         self.assertEqual(res["Cache-Control"], "no-store")
@@ -626,6 +641,22 @@ class CacheOutageTests(APITestBase):
         self.assertFalse(data["meta"]["route_cached"])
         # The response says plainly that it was served in degraded mode.
         self.assertTrue(data["meta"]["cache_degraded"])
+
+    def test_rate_limiting_fails_open(self):
+        """
+        A throttle that cannot reach the cache lets the request through.
+
+        DRF's throttles read and write the cache directly, outside services.safe_cache, so
+        an outage used to raise inside allow_request and turn every API call into a 500.
+        Failing open is the deliberate choice; refusing all traffic because the rate limiter
+        is down is worse than not counting for a while.
+        """
+        from .throttling import APIKeyBurstThrottle
+        throttle = APIKeyBurstThrottle()
+        request = APIClient().get("/api/v1/health/").wsgi_request
+        with broken_cache():
+            self.assertTrue(throttle.allow_request(request, None))
+        self.assertTrue(safe_cache.cache_degraded())
 
     def test_station_index_survives_an_outage(self):
         """The index comes from PostgreSQL, so losing the cache must not empty it."""

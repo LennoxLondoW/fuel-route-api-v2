@@ -31,15 +31,17 @@ so every leg finishes with fuel to spare, which is closer to how a driver behave
 positions here are only city-accurate, but it is 0 by default: a reserve would refuse a 490-mile gap
 the vehicle can in fact clear.
 
-Leaving the route for a pump and rejoining it is counted as driving, in both the fuel bill and the
-reachability check, so a cheap station far off the route is not treated as free. `summary.driven_miles`
-is the route plus those detours, and that is what the fuel figures are based on.
+**Stations are treated as lying on the route.** 97% of the rows in the price file give a highway
+address and 56% name an interstate exit, so these are highway truck stops that really are along the
+way. The file has no pump coordinates, only a city, so a station's distance from the route line is the
+distance to its city centre, not to the pump. Billing that as a detour would charge fuel for geocoding
+error rather than for driving. The response still reports it, as `distance_from_route_miles`.
 
-The corridor is 20 miles because the price file gives a city and state rather than pump locations, so
-a tighter corridor claims precision the data does not have. It also improves coverage where stations
-are sparse: on Salt Lake City to Reno the longest gap between usable stations falls from 470 miles at
-a 10-mile corridor to 321 at 20, which is useful headroom against a 500-mile tank. Detours are charged
-for, so a wider corridor never makes a far-off station look free.
+That is also why the corridor is 20 miles. It is not a detour budget; it is how far a city centre can
+sit from the route before its truck stop stops being plausibly on that road. A tighter corridor would
+claim precision the data does not have, and it costs coverage where stations are sparse: on Salt Lake
+City to Reno the longest gap between usable stations falls from 470 miles at a 10-mile corridor to 321
+at 20, useful headroom against a 500-mile tank.
 
 ## Data files
 
@@ -165,33 +167,31 @@ Response (shortened):
   "from": {"query": "New York, NY", "name": "New York, NY", "lat": 40.75, "lon": -74.0, "source": "city_table"},
   "to":   {"query": "Los Angeles, CA", "name": "Los Angeles, CA", "lat": 33.97, "lon": -118.25, "source": "city_table"},
   "summary": {
-    "distance_miles": 2800.0,        // along the road
-    "driven_miles": 3003.2,          // plus every detour to a pump: this is what burns fuel
-    "detour_miles": 203.2,
-    "duration_seconds": 179687, "fuel_used_gallons": 300.32,
-    "fuel_stops": 10, "total_cost_usd": 896.73,
-    "starting_tank": {"gallons": 50.0, "price_per_gallon": 3.286, "price_source": "first_stop", "cost_usd": 164.30},
-    "fuel_bought_on_route_usd": 740.29,
+    "distance_miles": 2801.2,
+    "duration_seconds": 179687, "fuel_used_gallons": 280.12,
+    "fuel_stops": 10, "total_cost_usd": 848.87,
+    "starting_tank": {"gallons": 50.0, "price_per_gallon": 3.059, "price_source": "first_stop", "cost_usd": 152.95},
+    "fuel_bought_on_route_usd": 695.92,
     // Fuel still in the tank on arrival, refunded at what was actually paid for it.
-    "leftover_fuel_gallons": 2.5, "leftover_fuel_credit_usd": 7.86
+    "leftover_fuel_gallons": 0.0, "leftover_fuel_credit_usd": 0.00
   },
   "stops": [
-    {"sequence": 1, "station_id": 2420, "name": "Sheetz #608", "city": "Shippensburg", "state": "PA",
-     "lat": 40.0514, "lon": -77.5195, "mile": 243.2,
-     "distance_from_route_miles": 11.4, "detour_miles": 22.7,
-     "price_per_gallon": 3.286, "fuel_on_arrival_gallons": 24.54, "gallons": 2.57, "cost_usd": 8.43}
+    {"sequence": 1, "station_id": 25965, "name": "SHEETZ #639", "city": "Youngstown", "state": "OH",
+     "lat": 41.1, "lon": -80.65, "mile": 392.6,
+     "distance_from_route_miles": 3.7,   // to the city centre; reported, not charged
+     "price_per_gallon": 3.059, "fuel_on_arrival_gallons": 10.74, "gallons": 5.61, "cost_usd": 17.16}
   ],
   "markers": [                       // everything to pin on the map, in order
     {"type": "start", "lat": 40.75, "lon": -74.0, "label": "New York, NY"},
-    {"type": "fuel_stop", "lat": 40.0514, "lon": -77.5195, "label": "1. Sheetz #608", "sequence": 1},
+    {"type": "fuel_stop", "lat": 41.1, "lon": -80.65, "label": "1. SHEETZ #639", "sequence": 1},
     {"type": "finish", "lat": 33.97, "lon": -118.25, "label": "Los Angeles, CA"}
   ],
   "route": {"format": "polyline", "point_count": 34788, "precision": 5,
             "bounds": [[33.97, -118.25], [41.4, -74.0]],   // pass to map.fitBounds()
             "polyline": "mnwwFjtzbMvBlk@..."},             // geometry=points gives "points" instead
   "assumptions": {"vehicle_range_miles": 500, "miles_per_gallon": 10, "station_corridor_miles": 20,
-                  "reserve_miles": 0, "detours_charged": true, ...},
-  "meta": {"route_cached": false, "stations_considered": 305,
+                  "reserve_miles": 0, "stations_are_on_route": true, ...},
+  "meta": {"route_cached": false, "stations_considered": 616,
            "distance_source": "osrm",      // "estimated" if OSRM sent no distance annotations
            "cache_degraded": false,        // true while the cache is unreachable
            "timings_ms": {"geocode": 39.5, "route": 1754.0, "plan": 27.1}},
@@ -272,8 +272,9 @@ Every cache read and write degrades to a miss, `meta.cache_degraded` turns true 
 health check reports `"degraded"` while still answering 200.
 
 Two things to know. Rate limiting and the brute-force counter stop being enforced, because both count in
-the cache and have nowhere to write; that is deliberate, since the alternative is refusing every request.
-API keys are still verified against PostgreSQL, so an outage does not let anyone in. And Nominatim's one-request-per-second
+the cache and have nowhere to write. The throttles fail open rather than raising, which is deliberate:
+refusing all traffic because the rate limiter is down is worse than not counting for a while. API keys
+are still verified against PostgreSQL, so an outage does not let anyone in. And Nominatim's one-request-per-second
 limit falls back to being spaced out per process instead of across the fleet, so run fewer processes or
 self-host Nominatim if an outage is likely to last.
 

@@ -53,11 +53,6 @@ class Candidate:
         if not isinstance(self.price, Decimal):
             self.price = Decimal(str(self.price))
 
-    @property
-    def detour_miles(self):
-        """Extra miles driven to reach this station and rejoin the route: out and back."""
-        return 2.0 * self.offset
-
 
 class StationIndex:
     """All stations, bucketed by grid cell."""
