@@ -9,7 +9,7 @@ Resolution order (the first that works wins):
 Results are cached, so repeated queries cost nothing. A cache outage only costs speed: the
 city table is in PostgreSQL and Nominatim can always be asked again.
 """
-
+ 
 import hashlib
 import re
 import threading

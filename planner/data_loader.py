@@ -44,7 +44,7 @@ BATCH_SIZE = 5000
 DUPLICATE_PRICE = min
 
 logger = logging.getLogger(__name__)
-
+ 
 
 class DataFileError(Exception):
     """A data file is missing or not in the expected format."""

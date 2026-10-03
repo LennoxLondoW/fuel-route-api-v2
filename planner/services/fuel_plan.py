@@ -9,7 +9,7 @@ Idea, at each station we stop at:
 That rule is the textbook greedy for this problem, and an exact dynamic program over the same
 candidate list confirms it reaches the true optimum once MIN_SAVING and MIN_HOP are set to
 zero. Those two knobs trade a fraction of a percent of cost for a shorter, more practical
-stop list.
+stop list. 
 
 Distances
 ---------

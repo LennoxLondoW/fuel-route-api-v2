@@ -4,7 +4,7 @@ Tests for the fuel route API. Run with:  python manage.py test
 No network is used: OSRM is replaced by a fake that returns a straight east-west route,
 and the cache is an in-memory one (see TESTING in settings.py).
 """
-
+ 
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
